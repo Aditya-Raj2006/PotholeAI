@@ -42,6 +42,7 @@ st.markdown("""
 MODEL_PATH = os.path.join(
     os.path.dirname(__file__), "pothole_pretrained_unet.pth"
 )
+)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SIZE = 384
 MEAN = [0.485, 0.456, 0.406]
