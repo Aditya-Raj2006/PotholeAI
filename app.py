@@ -39,10 +39,20 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+
+MODEL_URL = (
+    "https://github.com/Aditya-Raj2006/PotholeAI/"
+    "releases/download/v1.0.0/pothole_pretrained_unet.pth"
+)
+
 MODEL_PATH = os.path.join(
     os.path.dirname(__file__), "pothole_pretrained_unet.pth"
 )
-)
+
+if not os.path.exists(MODEL_PATH):
+    import urllib.request
+    urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SIZE = 384
 MEAN = [0.485, 0.456, 0.406]
