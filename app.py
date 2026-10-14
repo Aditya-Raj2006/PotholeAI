@@ -41,7 +41,7 @@ MODEL_URL = (
     "https://github.com/Aditya-Raj2006/PotholeAI/releases/download/v1.1.1/pothole_finetuned_clean_split.pth"
 )
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "pothole_finetuned_clean_split.pth")
-)
+
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SIZE = 384
