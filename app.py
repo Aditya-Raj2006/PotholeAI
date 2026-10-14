@@ -88,8 +88,9 @@ def get_transform():
     ])
 
 
-def connected_components(binary_mask, min_pixels=8):
-    """Find separate foreground regions in a 384 x 384 binary mask."""
+
+def connected_components(binary_mask, min_pixels=16):
+    """Find 8-connected regions and ignore regions smaller than 16 pixels."""
     height, width = binary_mask.shape
     visited = np.zeros((height, width), dtype=bool)
     components = []
@@ -107,25 +108,32 @@ def connected_components(binary_mask, min_pixels=8):
                 cy, cx = queue.popleft()
                 pixels.append((cy, cx))
 
-                for ny, nx in (
-                    (cy - 1, cx), (cy + 1, cx),
-                    (cy, cx - 1), (cy, cx + 1),
-                ):
-                    if (
-                        0 <= ny < height
-                        and 0 <= nx < width
-                        and binary_mask[ny, nx]
-                        and not visited[ny, nx]
-                    ):
-                        visited[ny, nx] = True
-                        queue.append((ny, nx))
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        if dy == 0 and dx == 0:
+                            continue
+
+                        ny, nx = cy + dy, cx + dx
+
+                        if (
+                            0 <= ny < height
+                            and 0 <= nx < width
+                            and binary_mask[ny, nx]
+                            and not visited[ny, nx]
+                        ):
+                            visited[ny, nx] = True
+                            queue.append((ny, nx))
 
             if len(pixels) >= min_pixels:
                 ys = [p[0] for p in pixels]
                 xs = [p[1] for p in pixels]
+
                 components.append({
                     "pixels": len(pixels),
-                    "box": (min(xs), min(ys), max(xs), max(ys)),
+                    "box": (
+                        min(xs), min(ys),
+                        max(xs), max(ys)
+                    ),
                 })
 
     return components
@@ -184,7 +192,7 @@ if page == "Image Analysis":
         "Detection threshold",
         min_value=0.10,
         max_value=0.90,
-        value=0.50,
+        value=0.60,
         step=0.05,
         help="Higher thresholds generally produce smaller predicted regions.",
     )
