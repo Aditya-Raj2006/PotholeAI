@@ -1,4 +1,3 @@
-
 import os
 import io
 from collections import deque
@@ -8,7 +7,7 @@ import streamlit as st
 import torch
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageFilter
 from torchvision import transforms
 
 st.set_page_config(
@@ -86,51 +85,64 @@ def get_transform():
 
 
 
-def connected_components(binary_mask, min_pixels=16):
-    """Find 8-connected regions and ignore regions smaller than 16 pixels."""
-    height, width = binary_mask.shape
+def connected_components(binary_mask, min_pixels=80, close_size=7):
+    """Count connected pothole-like regions after gently joining mask fragments.
+
+    Morphological closing can reconnect small gaps inside a predicted pothole.
+    min_pixels filters tiny speckles at the 384 x 384 analysis resolution.
+    These are prototype settings and do not guarantee one component per pothole.
+    """
+    mask_image = Image.fromarray((binary_mask.astype(np.uint8) * 255), mode="L")
+
+    # Close small gaps so one fragmented pothole is less likely to be counted
+    # as several separate regions. Keep this kernel small to avoid merging
+    # potholes that are clearly separated in the image.
+    if close_size >= 3:
+        if close_size % 2 == 0:
+            close_size += 1
+        mask_image = mask_image.filter(ImageFilter.MaxFilter(close_size))
+        mask_image = mask_image.filter(ImageFilter.MinFilter(close_size))
+
+    cleaned_mask = np.asarray(mask_image) > 0
+    height, width = cleaned_mask.shape
     visited = np.zeros((height, width), dtype=bool)
     components = []
 
     for y in range(height):
         for x in range(width):
-            if not binary_mask[y, x] or visited[y, x]:
+            if not cleaned_mask[y, x] or visited[y, x]:
                 continue
 
             queue = deque([(y, x)])
             visited[y, x] = True
             pixels = []
+            min_x = max_x = x
+            min_y = max_y = y
 
             while queue:
                 cy, cx = queue.popleft()
                 pixels.append((cy, cx))
+                min_x, max_x = min(min_x, cx), max(max_x, cx)
+                min_y, max_y = min(min_y, cy), max(max_y, cy)
 
                 for dy in (-1, 0, 1):
                     for dx in (-1, 0, 1):
                         if dy == 0 and dx == 0:
                             continue
-
                         ny, nx = cy + dy, cx + dx
-
                         if (
                             0 <= ny < height
                             and 0 <= nx < width
-                            and binary_mask[ny, nx]
+                            and cleaned_mask[ny, nx]
                             and not visited[ny, nx]
                         ):
                             visited[ny, nx] = True
                             queue.append((ny, nx))
 
             if len(pixels) >= min_pixels:
-                ys = [p[0] for p in pixels]
-                xs = [p[1] for p in pixels]
-
                 components.append({
                     "pixels": len(pixels),
-                    "box": (
-                        min(xs), min(ys),
-                        max(xs), max(ys)
-                    ),
+                    "box": (min_x, min_y, max_x, max_y),
                 })
 
     return components
@@ -224,8 +236,8 @@ if page == "Image Analysis":
 
                     full_mask = probability >= threshold
 
-                    # Component counting is done at model resolution
-                    # to keep processing manageable.
+                    # Count connected regions at model resolution. Small gaps
+                    # are closed in connected_components() to reduce fragmentation.
                     small_mask = np.array(
                         Image.fromarray(
                             full_mask.astype(np.uint8) * 255
@@ -305,6 +317,10 @@ if page == "Image Analysis":
 
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric("Pothole-like regions", total)
+                    st.caption(
+                        "Count is an estimate from the predicted mask. A single pothole "
+                        "may still split into multiple regions, and false positives may remain."
+                    )
                     c2.metric("Low (provisional)", low_count)
                     c3.metric("Moderate (provisional)", moderate_count)
                     c4.metric("High (provisional)", high_count)
