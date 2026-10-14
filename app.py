@@ -38,12 +38,9 @@ div[data-testid="stMetric"] {
 """, unsafe_allow_html=True)
 
 MODEL_URL = (
-    "https://github.com/Aditya-Raj2006/PotholeAI/"
-    "releases/download/v1.0.0/pothole_pretrained_unet.pth"
+    "https://github.com/Aditya-Raj2006/PotholeAI/releases/download/v1.1.1/pothole_finetuned_clean_split.pth"
 )
-MODEL_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "pothole_pretrained_unet.pth",
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "pothole_finetuned_clean_split.pth")
 )
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
